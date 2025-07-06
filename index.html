@@ -1,0 +1,91 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Timewarp Scanner</title>
+  <style>
+    body { text-align: center; font-family: Arial; background: #fff; }
+    video, canvas { max-width: 100%; }
+    #line { position: absolute; top: 0; bottom: 0; width: 2px; background: blue; }
+    #container { position: relative; display: inline-block; }
+  </style>
+</head>
+<body>
+  <h1>Timewarp Scanner</h1>
+  <div id="container">
+    <video id="video" autoplay playsinline width="320" height="240"></video>
+    <div id="line"></div>
+    <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+  </div>
+  <br>
+  <button onclick="startCamera()">Start Scan (Selfie Camera)</button>
+  <button onclick="saveSnapshot()">📸 Save Snapshot</button>
+  <button onclick="startRecording()">🎥 Start Recording</button>
+  <button onclick="stopRecording()">⏹️ Stop & Download Video</button>
+  <script>
+    let video = document.getElementById('video');
+    let canvas = document.getElementById('canvas');
+    let ctx = canvas.getContext('2d');
+    let line = document.getElementById('line');
+    let mediaRecorder, recordedBlobs = [];
+    let scanInterval, lineX = 0;
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' }, audio: false
+        });
+        video.srcObject = stream;
+        animateLine();
+      } catch (e) {
+        alert('Camera access denied or unavailable.');
+      }
+    }
+
+    function animateLine() {
+      line.style.display = 'block';
+      lineX = 0;
+      scanInterval = setInterval(() => {
+        if (lineX >= video.videoWidth) {
+          clearInterval(scanInterval);
+          return;
+        }
+        line.style.left = video.offsetLeft + lineX + 'px';
+        ctx.drawImage(video, lineX, 0, 1, video.videoHeight, lineX, 0, 1, video.videoHeight);
+        canvas.style.display = 'block';
+        lineX++;
+      }, 30);
+    }
+
+    function saveSnapshot() {
+      let link = document.createElement('a');
+      link.download = 'snapshot.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function startRecording() {
+      recordedBlobs = [];
+      const stream = canvas.captureStream();
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = event => recordedBlobs.push(event.data);
+      mediaRecorder.start();
+    }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'scan-recording.webm';
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+    }
+  </script>
+</body>
+</html>
